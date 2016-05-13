@@ -44,6 +44,13 @@ func init() {
 				// 写入表头
 				row = sheets[subNamespace].AddRow()
 				for _, title := range self.MustGetRule(datacell["RuleName"].(string)).ItemFields {
+					//----add by lyken 20160510
+					//_updateSet：此字段存在，则判断此数据为更新数据，此字段用在更新语句中的set语句
+					//_updateWhere：此字段存在，则判断此数据为更新数据，此字段用在更新语句中的where语句
+					if title == "_updateSet" || title == "_updateWhere" {
+						continue
+					}
+					//----end add
 					row.AddCell().Value = title
 				}
 				if self.Spider.OutDefaultField() {
@@ -55,6 +62,13 @@ func init() {
 
 			row = sheets[subNamespace].AddRow()
 			for _, title := range self.MustGetRule(datacell["RuleName"].(string)).ItemFields {
+				//----add by lyken 20160510
+				//_updateSet：此字段存在，则判断此数据为更新数据，此字段用在更新语句中的set语句
+				//_updateWhere：此字段存在，则判断此数据为更新数据，此字段用在更新语句中的where语句
+				if title == "_updateSet" || title == "_updateWhere" {
+					continue
+				}
+				//----end add
 				cell = row.AddCell()
 				vd := datacell["Data"].(map[string]interface{})
 				if v, ok := vd[title].(string); ok || vd[title] == nil {

@@ -20,9 +20,14 @@ type (
 	Historier interface {
 		ReadSuccess(provider string, inherit bool) // 读取成功记录
 		UpsertSuccess(string) bool                 // 更新或加入成功记录
+		UpsertTempSuccess(string) bool             // 更新或加入缓存中的成功记录 add by lyken 20160510
 		HasSuccess(string) bool                    // 检查是否存在某条成功记录
 		DeleteSuccess(string)                      // 删除成功记录
-		FlushSuccess(provider string)              // I/O输出成功记录，但不清缓存
+
+		HasTempSuccess(string) bool // 检查是否存在某条缓存中成功记录 add by lyken 20160510
+		DeleteTempSuccess(string)   // 删除缓存中成功记录 add by lyken 20160510
+
+		FlushSuccess(provider string) // I/O输出成功记录，但不清缓存
 
 		ReadFailure(provider string, inherit bool) // 读取失败记录
 		PullFailure() map[*request.Request]bool    // 拉取失败记录并清空
@@ -41,29 +46,40 @@ type (
 )
 
 const (
-	SUCCESS_SUFFIX = config.HISTORY_TAG + "__y"
-	FAILURE_SUFFIX = config.HISTORY_TAG + "__n"
-	SUCCESS_FILE   = config.HISTORY_DIR + "/" + SUCCESS_SUFFIX
-	FAILURE_FILE   = config.HISTORY_DIR + "/" + FAILURE_SUFFIX
+	SUCCESS_SUFFIX     = config.HISTORY_TAG + "__y"
+	TEMPSUCCESS_SUFFIX = config.HISTORYTEMP_TAG + "__y" // add by lyken 20160510
+	FAILURE_SUFFIX     = config.HISTORY_TAG + "__n"
+	SUCCESS_FILE       = config.HISTORY_DIR + "/" + SUCCESS_SUFFIX
+	TEMPSUCCESS_FILE   = config.HISTORY_DIR + "/" + TEMPSUCCESS_SUFFIX
+	FAILURE_FILE       = config.HISTORY_DIR + "/" + FAILURE_SUFFIX
 )
 
 func New(name string, subName string) Historier {
 	successTabName := SUCCESS_SUFFIX + "__" + name
+	successTempTabName := TEMPSUCCESS_SUFFIX + "__" + name // add by lyken 20160510
 	successFileName := SUCCESS_FILE + "__" + name
+	successTempFileName := TEMPSUCCESS_FILE + "__" + name // add by lyken 20160510
 	failureTabName := FAILURE_SUFFIX + "__" + name
 	failureFileName := FAILURE_FILE + "__" + name
 	if subName != "" {
 		successTabName += "__" + subName
+		successTempTabName += "__" + subName // add by lyken 20160510
 		successFileName += "__" + subName
+		successTempFileName += "__" + subName // add by lyken 20160510
 		failureTabName += "__" + subName
 		failureFileName += "__" + subName
 	}
 	return &History{
 		Success: &Success{
-			tabName:  successTabName,
-			fileName: successFileName,
-			new:      make(map[string]bool),
-			old:      make(map[string]bool),
+			tabName:      successTabName,
+			tabTempName:  successTempTabName, // add by lyken 20160510
+			fileName:     successFileName,
+			fileTempName: successTempFileName, // add by lyken 20160510
+			new:          make(map[string]bool),
+			old:          make(map[string]bool),
+			tmp:          make(map[string]bool), // add by lyken 20160510
+			tmpNew:       make(map[string]bool), // add by lyken 20160510
+			deleteTmp:    make(map[string]bool), // add by lyken 20160510
 		},
 		Failure: &Failure{
 			tabName:  failureTabName,
@@ -83,6 +99,8 @@ func (self *History) ReadSuccess(provider string, inherit bool) {
 		// 不继承历史记录时
 		self.Success.old = make(map[string]bool)
 		self.Success.new = make(map[string]bool)
+		//add by lyken 20160510
+		self.Success.tmp = make(map[string]bool)
 		self.Success.inheritable = false
 		return
 
@@ -94,6 +112,8 @@ func (self *History) ReadSuccess(provider string, inherit bool) {
 		// 上次没有继承历史记录，但本次继承时
 		self.Success.old = make(map[string]bool)
 		self.Success.new = make(map[string]bool)
+		//add by lyken 20160510
+		self.Success.tmp = make(map[string]bool)
 		self.Success.inheritable = true
 	}
 
@@ -111,6 +131,25 @@ func (self *History) ReadSuccess(provider string, inherit bool) {
 		for _, v := range docs["Docs"].([]interface{}) {
 			self.Success.old[v.(bson.M)["_id"].(string)] = true
 		}
+
+		/**
+		**
+		** add by lyken 20160510
+		**/
+		//start
+		var docsTmp = map[string]interface{}{}
+		err = mgo.Mgo(&docsTmp, "find", map[string]interface{}{
+			"Database":   config.DB_NAME,
+			"Collection": self.Success.tabTempName,
+		})
+		if err != nil {
+			logs.Log.Error(" *     Fail-tmp  [读取成功记录][mgo]: %v\n", err)
+			return
+		}
+		for _, vTmp := range docsTmp["docsTmp"].([]interface{}) {
+			self.Success.tmp[vTmp.(bson.M)["_id"].(string)] = true
+		}
+		//end
 
 	case "mysql":
 		_, err := mysql.DB()
@@ -134,6 +173,28 @@ func (self *History) ReadSuccess(provider string, inherit bool) {
 			self.Success.old[id] = true
 		}
 
+		/**
+		**
+		** add by lyken 20160510
+		**/
+		//start
+		tableTmp, okTmp := getReadMysqlTable(self.Success.tabTempName)
+		if !okTmp {
+			tableTmp = mysql.New().SetTableName("`" + self.Success.tabTempName + "`")
+			setReadMysqlTable(self.Success.tabTempName, tableTmp)
+		}
+		rowsTmp, errTmp := tableTmp.SelectAll()
+		if errTmp != nil {
+			return
+		}
+
+		for rowsTmp.Next() {
+			var id string
+			errTmp = rowsTmp.Scan(&id)
+			self.Success.tmp[id] = true
+		}
+		//end
+
 	default:
 		f, err := os.Open(self.Success.fileName)
 		if err != nil {
@@ -146,8 +207,29 @@ func (self *History) ReadSuccess(provider string, inherit bool) {
 		}
 		b[0] = '{'
 		json.Unmarshal(append(b, '}'), &self.Success.old)
+
+		/**
+		**
+		** add by lyken 20160510
+		**/
+		//start
+
+		fTmp, errTmp := os.Open(self.Success.fileTempName)
+		if errTmp != nil {
+			return
+		}
+		defer fTmp.Close()
+		bTmp, _ := ioutil.ReadAll(fTmp)
+		if len(bTmp) == 0 {
+			return
+		}
+		bTmp[0] = '{'
+		json.Unmarshal(append(bTmp, '}'), &self.Success.tmp)
+		//end
+
 	}
-	logs.Log.Informational(" *     [读取成功记录]: %v 条\n", len(self.Success.old))
+	//logs.Log.Informational(" *     [读取成功记录]: %v 条\n", len(self.Success.old))  change by lyken 20160510
+	logs.Log.Informational(" *     [读取成功记录]: %v 条 [tmp记录]: %v 条\n", len(self.Success.old), len(self.Success.tmp))
 }
 
 // 读取失败记录

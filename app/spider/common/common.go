@@ -205,3 +205,101 @@ func MakeUrl(path string, schemeAndHost ...string) (string, bool) {
 	}
 	return u, true
 }
+
+//处理html文件--add by lyken 20160512
+func ProcessHtml(html string) string {
+	//去除注释
+	re := regexp.MustCompile("<![\\S\\s]+?>")
+	html = re.ReplaceAllString(html, "")
+
+	//将HTML标签全转换成小写
+	//re, _ = regexp.Compile("\\<[\\S\\s]+?\\>")
+	//html = re.ReplaceAllStringFunc(html, strings.ToLower)
+
+	//去除连续的换行符
+	re, _ = regexp.Compile("\\s{2,}")
+	html = re.ReplaceAllString(html, "\n")
+
+	return html
+}
+
+//清除换行--add by lyken 20160512
+func DepriveBreak(s string) string {
+	s = strings.Replace(s, "\n", "", -1)
+	s = strings.Replace(s, "\r", "", -1)
+	s = strings.Replace(s, "\t", "", -1)
+	s = strings.Replace(s, `\n`, "", -1)
+	s = strings.Replace(s, `\r`, "", -1)
+	s = strings.Replace(s, `\t`, "", -1)
+	return s
+}
+
+//网址组合--add by lyken 20160512
+func GetHerf(baseurl string, url string, herf string, mustBase bool) string {
+	result := ""
+	herf = Deprive2(herf)
+	if !strings.HasSuffix(baseurl, "/") {
+		baseurl += "/"
+	}
+
+	refIndex := strings.LastIndex(url, "/") + 1
+	sub := url[refIndex:]
+	if len(sub) > 0 && strings.Index(sub, ".") == -1 {
+		url = url + `/`
+	}
+
+	refIndex = strings.LastIndex(herf, "/") + 1
+	sub = herf[refIndex:]
+	if len(sub) > 0 && strings.Index(sub, ".") == -1 {
+		herf = herf + `/`
+	}
+
+	if !strings.HasSuffix(url, "/") {
+		url = url[0 : strings.LastIndex(url, "/")+1]
+	}
+
+	if strings.HasPrefix(herf, "./../") {
+		herf = strings.Replace(herf, "./", "", 1)
+	}
+
+	if len(herf) == 0 ||
+		herf == "/" {
+		result = ""
+	} else if strings.HasPrefix(herf, "./") {
+		reg := regexp.MustCompile(`^(./)(.*)`)
+		result = url + strings.Trim(reg.ReplaceAllString(herf, "$2"), " ")
+	} else if strings.HasPrefix(herf, "/") {
+		//reg = regexp.MustCompile(`^(http)(s)?(://)([0-9A-Za-z.\-_]+)(/)(.*)`)
+		result = strings.Trim(baseurl, " ") + herf[1:]
+	} else if mustBase && !strings.HasPrefix(herf, baseurl) &&
+		(strings.Index(herf, "://") > -1 ||
+			(strings.Index(herf, "/") == -1 && strings.Count(herf, ".") > 3)) { //IP
+		result = ""
+	} else if strings.Index(herf, "://") > -1 ||
+		(strings.Index(herf, "/") == -1 && strings.Count(herf, ".") > 3) { //IP
+		result = herf
+	} else {
+		count := strings.Count(herf, "../")
+		if count > 0 {
+			urlArr := strings.SplitAfter(url, "/")
+			len := cap(urlArr) - count - 1
+			if len > 2 {
+				preUrl := ""
+				for i, str := range urlArr {
+					if len > i {
+						preUrl += str
+					}
+				}
+				result = preUrl + strings.Replace(herf, "../", "", -1)
+			}
+		} else {
+			result = url + herf
+		}
+	}
+
+	if strings.Count(result, "://") > 1 {
+		result = strings.SplitN(result, "://", 2)[1]
+	}
+
+	return result
+}

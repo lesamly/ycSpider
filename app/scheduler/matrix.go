@@ -156,7 +156,18 @@ func (self *Matrix) DoHistory(req *request.Request, ok bool) bool {
 		self.tempHistoryLock.Unlock()
 
 		if ok {
-			self.history.UpsertSuccess(hash)
+			/**
+			*是否不插入成功记录
+			*self.history.UpsertSuccess(hash)
+			*change by lyken 20160509
+			**/
+			//start
+			if !req.TempSuccess {
+				self.history.UpsertSuccess(hash)
+			} else {
+				self.history.UpsertTempSuccess(hash)
+			}
+			//end
 			return false
 		}
 	}
@@ -252,6 +263,28 @@ func (self *Matrix) hasHistory(hash string) bool {
 	has := self.tempHistory[hash]
 	self.tempHistoryLock.RUnlock()
 	return has
+}
+
+/**
+**add by lyken 20160510
+**/
+func (self *Matrix) HasTempHistory(req *request.Request) bool {
+	hash := makeUnique(req)
+	if self.history.HasTempSuccess(hash) {
+		return true
+	}
+	self.tempHistoryLock.RLock()
+	has := self.tempHistory[hash]
+	self.tempHistoryLock.RUnlock()
+	return has
+}
+
+/**
+**add by lyken 20160510
+**/
+func (self *Matrix) DeleteTempSuccess(req *request.Request) {
+	hash := makeUnique(req)
+	self.history.DeleteTempSuccess(hash)
 }
 
 func (self *Matrix) insertTempHistory(hash string) {

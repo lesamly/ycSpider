@@ -48,7 +48,21 @@ func init() {
 				file.WriteString("\xEF\xBB\xBF") // 写入UTF-8 BOM
 
 				sheets[subNamespace] = csv.NewWriter(file)
-				th := self.MustGetRule(datacell["RuleName"].(string)).ItemFields
+				//th := self.MustGetRule(datacell["RuleName"].(string)).ItemFields == change by lyken 20160510
+				_th := self.MustGetRule(datacell["RuleName"].(string)).ItemFields
+
+				//----add by lyken 20160510
+				var th []string
+				//_updateSet：此字段存在，则判断此数据为更新数据，此字段用在更新语句中的set语句
+				//_updateWhere：此字段存在，则判断此数据为更新数据，此字段用在更新语句中的where语句
+				for _, title := range _th {
+					if title == "_updateSet" || title == "_updateWhere" {
+						continue
+					}
+					th = append(th, title)
+				}
+				//----end add
+
 				if self.Spider.OutDefaultField() {
 					th = append(th, "当前链接", "上级链接", "下载时间")
 				}
@@ -64,6 +78,13 @@ func init() {
 
 			row := []string{}
 			for _, title := range self.MustGetRule(datacell["RuleName"].(string)).ItemFields {
+				//----add by lyken 20160510
+				//_updateSet：此字段存在，则判断此数据为更新数据，此字段用在更新语句中的set语句
+				//_updateWhere：此字段存在，则判断此数据为更新数据，此字段用在更新语句中的where语句
+				if title == "_updateSet" || title == "_updateWhere" {
+					continue
+				}
+				//----end add
 				vd := datacell["Data"].(map[string]interface{})
 				if v, ok := vd[title].(string); ok || vd[title] == nil {
 					row = append(row, v)

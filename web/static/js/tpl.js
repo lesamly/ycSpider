@@ -156,7 +156,8 @@ var FailureInheritHtml = function(FailureInherit) {
 
     var True = "";
     var False = "";
-    if (FailureInherit == true) {
+    //if (FailureInherit == true) {
+    if (FailureInherit != true) {
         True = " selected";
     } else {
         False = " selected";

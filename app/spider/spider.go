@@ -52,9 +52,10 @@ type (
 	}
 	// 采集规则单元
 	Rule struct {
-		ItemFields []string                                           // 输出结果的字段名列表
-		ParseFunc  func(*Context)                                     // 内容解析函数
-		AidFunc    func(*Context, map[string]interface{}) interface{} // 通用辅助函数
+		PrimaryKeys map[string]string                                  // 自定义主键，默认ID   add by lyken 20160421  key:abc, val:int(12)  -->  abc int(12) primary key   [val:""-->int(12)]
+		ItemFields  []string                                           // 输出结果的字段名列表
+		ParseFunc   func(*Context)                                     // 内容解析函数
+		AidFunc     func(*Context, map[string]interface{}) interface{} // 通用辅助函数
 	}
 )
 
@@ -67,6 +68,11 @@ func (self *Spider) Register() *Spider {
 // 指定规则的获取结果的字段名列表
 func (self *Spider) GetItemFields(rule *Rule) []string {
 	return rule.ItemFields
+}
+
+// 指定规则的获取结果的字段名列表------add By Lyken 20160421
+func (self *Spider) GetPrimaryKeys(rule *Rule) map[string]string {
+	return rule.PrimaryKeys
 }
 
 // 返回结果字段名的值
@@ -214,6 +220,7 @@ func (self *Spider) Copy() *Spider {
 		ghost.RuleTree.Trunk[k] = new(Rule)
 
 		ghost.RuleTree.Trunk[k].ItemFields = make([]string, len(v.ItemFields))
+		ghost.RuleTree.Trunk[k].PrimaryKeys = v.PrimaryKeys //add by lyken 20160425
 		copy(ghost.RuleTree.Trunk[k].ItemFields, v.ItemFields)
 
 		ghost.RuleTree.Trunk[k].ParseFunc = v.ParseFunc
@@ -283,6 +290,20 @@ func (self *Spider) TryFlushFailure() {
 	self.ReqMatrix.TryFlushFailure()
 }
 
+/**
+**add by lyken 20160510
+**/
+func (self *Spider) HasTempHistory(req *request.Request) bool {
+	return self.ReqMatrix.HasTempHistory(req)
+}
+
+/**
+**add by lyken 20160510
+**/
+func (self *Spider) DeleteTempSuccess(req *request.Request) {
+	self.ReqMatrix.DeleteTempSuccess(req)
+}
+
 // 开始执行蜘蛛
 func (self *Spider) Start() {
 	self.rwMutex.Lock()
@@ -336,6 +357,8 @@ func (self *Spider) Defer() {
 	}
 	// 等待处理中的请求完成
 	self.ReqMatrix.Wait()
+	// 更新成功记录-fix no output with history bug add by lyken 20160511
+	//self.ReqMatrix.TryFlushSuccess()
 	// 更新失败记录
 	self.ReqMatrix.TryFlushFailure()
 }
