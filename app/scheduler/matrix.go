@@ -27,6 +27,7 @@ type Matrix struct {
 	tempHistoryLock sync.RWMutex
 	failureLock     sync.Mutex
 	sync.Mutex
+	CurrentRule string //当前执行的规则 add by lyken 20160516
 }
 
 func newMatrix(spiderName, spiderSubName string, maxPage int64) *Matrix {
@@ -95,6 +96,22 @@ func (self *Matrix) Push(req *request.Request) {
 
 	var priority = req.GetPriority()
 
+	/**
+	 **add by lyken 20160516
+	 **/
+	//---start
+	pri_Len := len(self.priorities) - 1
+	if pri_Len >= 0 &&
+		!req.GetAutoSequence() &&
+		self.CurrentRule == req.GetParentRuleName() &&
+		self.CurrentRule != req.GetRuleName() {
+
+		priority = self.priorities[pri_Len] + 10
+	}
+	//self.AutoSequence[ruleName] = priority
+	self.CurrentRule = req.GetRuleName()
+	//---end
+
 	// 初始化该蜘蛛下该优先级队列
 	if _, found := self.reqs[priority]; !found {
 		self.priorities = append(self.priorities, priority)
@@ -162,10 +179,10 @@ func (self *Matrix) DoHistory(req *request.Request, ok bool) bool {
 			*change by lyken 20160509
 			**/
 			//start
-			if !req.TempSuccess {
-				self.history.UpsertSuccess(hash)
-			} else {
+			if req.TempSuccess {
 				self.history.UpsertTempSuccess(hash)
+			} else {
+				self.history.UpsertSuccess(hash)
 			}
 			//end
 			return false
@@ -272,11 +289,9 @@ func (self *Matrix) HasTempHistory(req *request.Request) bool {
 	hash := makeUnique(req)
 	if self.history.HasTempSuccess(hash) {
 		return true
+	} else {
+		return false
 	}
-	self.tempHistoryLock.RLock()
-	has := self.tempHistory[hash]
-	self.tempHistoryLock.RUnlock()
-	return has
 }
 
 /**

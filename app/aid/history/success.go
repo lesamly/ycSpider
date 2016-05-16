@@ -51,7 +51,7 @@ func (self *Success) UpsertSuccess(hash string) bool {
 func (self *Success) UpsertTempSuccess(hash string) bool {
 	self.RWMutex.Lock()
 	defer self.RWMutex.Unlock()
-
+	fmt.Println("hash:", hash)
 	if self.old[hash] {
 		return false
 	}
@@ -88,7 +88,7 @@ func (self *Success) DeleteSuccess(hash string) {
 **/
 func (self *Success) HasTempSuccess(hash string) bool {
 	self.RWMutex.Lock()
-	has := self.tmp[hash] || self.tmpNew[hash]
+	has := self.tmp[hash] //|| self.tmpNew[hash]
 	self.RWMutex.Unlock()
 	return has
 }

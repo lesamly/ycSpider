@@ -54,6 +54,12 @@ type Request struct {
 
 	//是否不插入成功记录 add by lyken 20160509
 	TempSuccess bool
+	//是否按自动执行顺序执行 add by lyken 20160516
+	AutoSequence bool
+	//父级的规则名称 add by lyken 20160516
+	ParentRuleName string
+	//父级的优先级 add by lyken 20160516
+	ParentPriority int
 
 	// 指定下载器ID
 	// 0为Surf高并发下载器，各种控制功能齐全
@@ -350,3 +356,32 @@ func (self *Request) MarshalJSON() ([]byte, error) {
 	b, err := json.Marshal(*self)
 	return b, err
 }
+
+/**
+**处理自动执行子级request
+**add by lyken 20160516
+**/
+//----start
+func (self *Request) GetAutoSequence() bool {
+	return self.AutoSequence
+}
+func (self *Request) SetAutoSequence(v bool) *Request {
+	self.AutoSequence = v
+	return self
+}
+func (self *Request) GetParentRuleName() string {
+	return self.ParentRuleName
+}
+func (self *Request) SetParentRuleName(v string) *Request {
+	self.ParentRuleName = v
+	return self
+}
+func (self *Request) GetParentPriority() int {
+	return self.ParentPriority
+}
+func (self *Request) SetParentPriority(v int) *Request {
+	self.ParentPriority = v
+	return self
+}
+
+//---------end

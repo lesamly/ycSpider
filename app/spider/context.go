@@ -85,6 +85,17 @@ func (self *Context) AddQueue(req *request.Request) *Context {
 		req.SetReferer(self.GetUrl())
 	}
 
+	/**
+	 **处理自动执行子级request
+	 **add by lyken 20160516
+	 **/
+	//---start
+	if self.GetRequest() != nil {
+		req.SetParentRuleName(self.GetRuleName())
+		req.SetParentPriority(self.GetRequest().GetPriority())
+	}
+	//---end
+
 	self.spider.RequestPush(req)
 	return self
 }
