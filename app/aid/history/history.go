@@ -94,7 +94,6 @@ func (self *History) ReadSuccess(provider string, inherit bool) {
 	self.RWMutex.Lock()
 	self.provider = provider
 	self.RWMutex.Unlock()
-
 	if !inherit {
 		// 不继承历史记录时
 		self.Success.old = make(map[string]bool)
@@ -163,7 +162,17 @@ func (self *History) ReadSuccess(provider string, inherit bool) {
 			setReadMysqlTable(self.Success.tabName, table)
 		}
 		rows, err := table.SelectAll()
-		if err != nil {
+		//change by lyken 20160520  start
+		if err == nil {
+			for rows.Next() {
+				var id string
+				err = rows.Scan(&id)
+				self.Success.old[id] = true
+			}
+		} else {
+			logs.Log.Error(" *     Fail  [读取成功记录][mysql]: %v\n", err)
+		}
+		/*if err != nil {
 			return
 		}
 
@@ -171,7 +180,8 @@ func (self *History) ReadSuccess(provider string, inherit bool) {
 			var id string
 			err = rows.Scan(&id)
 			self.Success.old[id] = true
-		}
+		}*/
+		//---end
 
 		/**
 		**
@@ -184,14 +194,14 @@ func (self *History) ReadSuccess(provider string, inherit bool) {
 			setReadMysqlTable(self.Success.tabTempName, tableTmp)
 		}
 		rowsTmp, errTmp := tableTmp.SelectAll()
-		if errTmp != nil {
-			return
-		}
-
-		for rowsTmp.Next() {
-			var id string
-			errTmp = rowsTmp.Scan(&id)
-			self.Success.tmp[id] = true
+		if errTmp == nil {
+			for rowsTmp.Next() {
+				var id string
+				errTmp = rowsTmp.Scan(&id)
+				self.Success.tmp[id] = true
+			}
+		} else {
+			logs.Log.Error(" *     Fail  [读取成功记录-temp][mysql]: %v\n", errTmp)
 		}
 		//end
 
@@ -274,7 +284,9 @@ func (self *History) ReadFailure(provider string, inherit bool) {
 			req, err := request.UnSerialize(failure)
 			if err != nil {
 				continue
-			}
+			} else { //add else by lyken 20160520 start
+				logs.Log.Error(" *     Fail  [读取失败记录][mgo]: %v\n", err)
+			} //add end
 			self.Failure.list[req] = true
 		}
 
@@ -290,7 +302,25 @@ func (self *History) ReadFailure(provider string, inherit bool) {
 			setReadMysqlTable(self.Failure.tabName, table)
 		}
 		rows, err := table.SelectAll()
-		if err != nil {
+		//change by lyken 20160520 start
+		if err == nil {
+			for rows.Next() {
+				var id int
+				var failure string
+				err = rows.Scan(&id, &failure)
+				req, err := request.UnSerialize(failure)
+				if err != nil {
+					continue
+				} else { //add else by lyken 20160520 start
+					logs.Log.Error(" *     Fail  [读取失败记录][mysql]: %v\n", err)
+				} //add end
+				self.Failure.list[req] = true
+				fLen++
+			}
+		} else {
+			logs.Log.Error(" *     Fail  [读取失败记录][mysql]: %v\n", err)
+		}
+		/*if err != nil {
 			return
 		}
 
@@ -304,7 +334,8 @@ func (self *History) ReadFailure(provider string, inherit bool) {
 			}
 			self.Failure.list[req] = true
 			fLen++
-		}
+		}*/
+		//---change end
 
 	default:
 		f, err := os.Open(self.Failure.fileName)

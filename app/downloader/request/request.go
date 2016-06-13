@@ -7,6 +7,8 @@ import (
 	"reflect"
 	"strings"
 	"time"
+
+	"github.com/henrylee2cn/pholcus/common/util"
 )
 
 // Request represents object waiting for being crawled.
@@ -151,12 +153,13 @@ func UnSerialize(s string) (*Request, error) {
 
 // 序列化
 func (self *Request) Serialize() string {
-	for k, v := range self.Temp {
+	//----delete by lyken 20160520
+	/*for k, v := range self.Temp {
 		self.Temp.Set(k, v)
 		self.TempIsJson[k] = true
-	}
+	}*/
 	b, _ := json.Marshal(self)
-	return strings.Replace(string(b), `\u0026`, `&`, -1)
+	return strings.Replace(util.Bytes2String(b), `\u0026`, `&`, -1)
 }
 
 // 获取副本
@@ -296,6 +299,11 @@ func (self *Request) GetTemp(key string, receive interface{}) interface{} {
 		}
 		return self.Temp.Get(key, receive)
 	}
+	//----add by lyken 20160525 start--
+	if _, ok := self.Temp[key]; !ok {
+		return nil
+	}
+	//---end
 
 	r := reflect.ValueOf(receive)
 	t := reflect.ValueOf(self.Temp[key])

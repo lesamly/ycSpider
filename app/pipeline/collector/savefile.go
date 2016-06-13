@@ -6,6 +6,8 @@ import (
 	"path"
 	"runtime"
 
+	"github.com/henrylee2cn/pholcus/app/pipeline/collector/data"
+	"github.com/henrylee2cn/pholcus/common/bytes"
 	"github.com/henrylee2cn/pholcus/common/util"
 	"github.com/henrylee2cn/pholcus/config"
 	"github.com/henrylee2cn/pholcus/logs"
@@ -18,9 +20,6 @@ func (self *Collector) SaveFile() {
 		select {
 		case file := <-self.FileChan:
 			self.outCount[2]++
-
-			// 统计输出文件数
-			self.setFileSum(1)
 
 			// 路径： file/"RuleName"/"time"/"Name"
 			p, n := path.Split(file["Name"].(string))
@@ -37,16 +36,23 @@ func (self *Collector) SaveFile() {
 			// 创建文件
 			fileName := dir + util.FileNameReplace(n)
 			f, _ := os.Create(fileName)
-			io.Copy(f, file["Body"].(io.ReadCloser))
+			size, _ := io.Copy(f, file["Body"].(io.ReadCloser))
 			f.Close()
 			file["Body"].(io.ReadCloser).Close()
 
+			// 输出统计
+			self.addFileSum(1)
+
 			// 打印报告
 			logs.Log.Informational(" * ")
-			logs.Log.App(" *     [任务：%v | KEYIN：%v]   成功下载文件： %v \n", self.Spider.GetName(), self.Spider.GetKeyin(), fileName)
+			logs.Log.App(" *     [任务：%v | KEYIN：%v]   成功下载文件： %v (%s)\n",
+				self.Spider.GetName(), self.Spider.GetKeyin(), fileName, bytes.Format(uint64(size)))
 			logs.Log.Informational(" * ")
 
 			self.outCount[3]++
+
+			// 复用FileCell
+			data.PutFileCell(file)
 		default:
 			runtime.Gosched()
 		}

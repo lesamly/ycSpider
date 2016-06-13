@@ -102,11 +102,8 @@ func (self *Matrix) Push(req *request.Request) {
 	//---start
 	pri_Len := len(self.priorities) - 1
 	if pri_Len >= 0 &&
-		!req.GetAutoSequence() &&
-		self.CurrentRule == req.GetParentRuleName() &&
-		self.CurrentRule != req.GetRuleName() {
-
-		priority = self.priorities[pri_Len] + 10
+		!req.GetAutoSequence() {
+		priority = self.priorities[pri_Len] + 1
 	}
 	//self.AutoSequence[ruleName] = priority
 	self.CurrentRule = req.GetRuleName()
