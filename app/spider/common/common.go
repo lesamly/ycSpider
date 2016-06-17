@@ -105,6 +105,8 @@ func Deprive2(s string) string {
 	s = strings.Replace(s, `\r`, "", -1)
 	s = strings.Replace(s, `\t`, "", -1)
 	s = strings.Replace(s, ` `, "", -1)
+	s = strings.Replace(s, `　`, "", -1) //add by lyken 20160617
+	s = strings.Replace(s, ` `, "", -1) //add by lyken 20160617
 	return s
 }
 
