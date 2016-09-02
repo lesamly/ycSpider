@@ -241,11 +241,33 @@ func DepriveBreak(s string) string {
 	return s
 }
 
+//多余的换行--add by lyken 20160819
+func DepriveMutiBreak(s string) string {
+	re, _ := regexp.Compile(`([^\n\f\r\t 　 ]*)([ 　 ]*[\n\f\r\t]+[ 　 ]*)+`)
+	return re.ReplaceAllString(s, "${1}\n")
+
+}
+
+//在原有网址上添加参数--add by lyken 20160901
+func HrefSub(src string, sub string) string {
+	if len(sub) > 0 {
+		if strings.Index(src, "?") > -1 {
+			src += "&" + sub
+		} else {
+			src += "?" + sub
+		}
+	}
+	return src
+}
+
 //域名获取 Reg
 var domainReg = regexp.MustCompile(`([a-zA-Z0-9]+://([a-zA-Z0-9\:\_\-\.])+(/)?)(.)*`)
 
 //网址组合--add by lyken 20160512
 func GetHerf(baseurl string, url string, herf string, mustBase bool) string {
+	if strings.HasPrefix(herf, `javascript:`) {
+		return ``
+	}
 	result := ""
 	herf = Deprive2(herf)
 	if !strings.HasSuffix(baseurl, "/") {
